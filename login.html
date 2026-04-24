@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — HelpNear</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="container">
+
+    <a href="index.html" class="brand">
+      <div class="brand-icon">🤝</div>
+      <div class="brand-name">Help<span>Near</span></div>
+    </a>
+
+    <div class="card">
+      <h1 class="card-title">Bienvenido/a</h1>
+      <p class="card-subtitle">Inicia sesión para ver ayudas en tu ciudad</p>
+
+      <div id="alert-box" class="alert"></div>
+
+      <div class="form-group">
+        <label for="email">Correo electrónico</label>
+        <input type="email" id="email" placeholder="hola@ejemplo.com" autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="btn btn-primary" id="btn-login" onclick="iniciarSesion()">
+        Iniciar sesión →
+      </button>
+
+      <div class="divider">o</div>
+
+      <p class="text-center text-sm text-muted">
+        ¿No tienes cuenta?
+        <a href="register.html" class="link">Regístrate gratis</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  redirectIfLoggedIn('home.html');
+
+  // Permitir Enter en los campos
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') iniciarSesion();
+  });
+
+  async function iniciarSesion() {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('btn-login');
+
+    if (!email || !password) {
+      return showAlert('alert-box', 'Completa todos los campos.');
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Ingresando...';
+
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+      window.location.href = 'home.html';
+    } catch (err) {
+      const msg = {
+        'auth/user-not-found':    'No existe una cuenta con ese correo.',
+        'auth/wrong-password':    'Contraseña incorrecta.',
+        'auth/invalid-email':     'El correo no es válido.',
+        'auth/too-many-requests': 'Demasiados intentos. Espera un momento.'
+      }[err.code] || 'Error al iniciar sesión.';
+
+      showAlert('alert-box', msg);
+      btn.disabled = false;
+      btn.innerHTML = 'Iniciar sesión →';
+    }
+  }
+</script>
+</body>
+</html>

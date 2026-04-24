@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registro — HelpNear</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="container">
+
+    <a href="index.html" class="brand">
+      <div class="brand-icon">🤝</div>
+      <div class="brand-name">Help<span>Near</span></div>
+    </a>
+
+    <div class="card">
+      <h1 class="card-title">Crear cuenta</h1>
+      <p class="card-subtitle">Únete a tu comunidad y empieza a ayudar</p>
+
+      <div id="alert-box" class="alert"></div>
+
+      <div class="form-group">
+        <label for="nombre">Nombre completo</label>
+        <input type="text" id="nombre" placeholder="Ej: María González" autocomplete="name" />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Correo electrónico</label>
+        <input type="email" id="email" placeholder="hola@ejemplo.com" autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+      </div>
+
+      <div class="form-group">
+        <label for="ciudad">Ciudad</label>
+        <input type="text" id="ciudad" placeholder="Ej: Bogotá" />
+      </div>
+
+      <div class="form-group">
+        <label for="barrio">Barrio</label>
+        <input type="text" id="barrio" placeholder="Ej: Chapinero" />
+      </div>
+
+      <button class="btn btn-primary" id="btn-register" onclick="registrar()">
+        Crear mi cuenta →
+      </button>
+
+      <div class="divider">o</div>
+
+      <p class="text-center text-sm text-muted">
+        ¿Ya tienes cuenta?
+        <a href="login.html" class="link">Iniciar sesión</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  redirectIfLoggedIn('home.html');
+
+  async function registrar() {
+    const nombre   = document.getElementById('nombre').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const ciudad   = document.getElementById('ciudad').value.trim();
+    const barrio   = document.getElementById('barrio').value.trim();
+    const btn      = document.getElementById('btn-register');
+
+    // Validaciones
+    if (!nombre || !email || !password || !ciudad || !barrio) {
+      return showAlert('alert-box', 'Completa todos los campos.');
+    }
+    if (password.length < 6) {
+      return showAlert('alert-box', 'La contraseña debe tener al menos 6 caracteres.');
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creando cuenta...';
+
+    try {
+      // 1) Crear usuario en Firebase Auth
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      const uid  = cred.user.uid;
+
+      // 2) Guardar datos en Firestore
+      await db.collection('usuarios').doc(uid).set({
+        nombre,
+        email,
+        ciudad,
+        barrio,
+        rating: 5,           // ⭐ base para calificación futura
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showAlert('alert-box', '¡Cuenta creada! Redirigiendo...', 'success');
+      setTimeout(() => window.location.href = 'home.html', 1200);
+
+    } catch (err) {
+      const msg = {
+        'auth/email-already-in-use': 'Este correo ya está registrado.',
+        'auth/invalid-email':        'El correo no es válido.',
+        'auth/weak-password':        'La contraseña es muy débil.'
+      }[err.code] || 'Ocurrió un error. Intenta de nuevo.';
+
+      showAlert('alert-box', msg);
+      btn.disabled = false;
+      btn.innerHTML = 'Crear mi cuenta →';
+    }
+  }
+</script>
+</body>
+</html>

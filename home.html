@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inicio — HelpNear</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .filter-btn {
+      padding: .35rem .85rem;
+      border-radius: 50px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-btn:hover,
+    .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(74,222,128,.08);
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 1.75rem;
+      right: 1.75rem;
+      width: 56px; height: 56px;
+      background: var(--accent);
+      color: #0f1117;
+      border: none;
+      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(74,222,128,.35);
+      transition: transform .2s, box-shadow .2s;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+      z-index: 50;
+    }
+    .fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(74,222,128,.45); }
+
+    .stats-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .65rem 1rem;
+      flex: 1;
+      min-width: 120px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: .75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="home.html" class="brand" style="margin-bottom:0;">
+        <div class="brand-icon">🤝</div>
+        <div class="brand-name">Help<span>Near</span></div>
+      </a>
+      <div class="nav-actions">
+        <div class="user-chip">
+          <div class="user-avatar" id="nav-avatar">?</div>
+          <span id="nav-name">...</span>
+          <span class="rating" id="nav-rating" style="margin-left:.2rem;">⭐ 5</span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Feed -->
+  <div class="container-wide">
+
+    <!-- Stats -->
+    <div class="stats-bar" id="stats-bar" style="display:none!important;"></div>
+
+    <!-- Header del feed -->
+    <div class="posts-header">
+      <div>
+        <div class="posts-title">Ayudas en tu ciudad</div>
+        <div style="font-size:.85rem;color:var(--muted);margin-top:.2rem;" id="subtitle-text">Cargando...</div>
+      </div>
+      <div class="city-badge" id="city-badge">
+        📍 ...
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-bar" id="filter-bar" style="display:none;">
+      <button class="filter-btn active" onclick="filtrar('todos', this)">Todos</button>
+      <button class="filter-btn" onclick="filtrar('Necesito ayuda', this)">🙋 Necesito ayuda</button>
+      <button class="filter-btn" onclick="filtrar('Quiero ayudar', this)">🤲 Quiero ayudar</button>
+    </div>
+
+    <!-- Contenido -->
+    <div id="posts-container">
+      <div class="loading-state">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;margin-bottom:1rem;"></div>
+        <p>Cargando publicaciones...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FAB: Publicar -->
+  <a href="publicar.html" class="fab" title="Nueva publicación">＋</a>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  let allPosts   = [];
+  let userData   = null;
+  let activeFilter = 'todos';
+
+  // ── Inicializar ────────────────────────────
+  (async () => {
+    const user = await requireAuth('login.html');
+    userData   = await getUserData(user.uid);
+
+    if (!userData) {
+      auth.signOut();
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Navbar
+    document.getElementById('nav-avatar').textContent = getInitials(userData.nombre);
+    document.getElementById('nav-name').textContent   = userData.nombre.split(' ')[0];
+    document.getElementById('nav-rating').textContent = `⭐ ${userData.rating ?? 5}`;
+    document.getElementById('city-badge').textContent = `📍 ${userData.ciudad}`;
+
+    // Cargar posts de su ciudad
+    cargarPublicaciones(userData.ciudad);
+  })();
+
+  // ── Cargar publicaciones ───────────────────
+  function cargarPublicaciones(ciudad) {
+    db.collection('publicaciones')
+      .where('ciudad', '==', ciudad)
+      .orderBy('fecha', 'desc')
+      .onSnapshot(snap => {
+        allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPosts(allPosts);
+
+        // Stats
+        const necesito = allPosts.filter(p => p.tipo === 'Necesito ayuda').length;
+        const quiero   = allPosts.filter(p => p.tipo === 'Quiero ayudar').length;
+        document.getElementById('subtitle-text').textContent =
+          `${allPosts.length} publicación${allPosts.length !== 1 ? 'es' : ''} encontrada${allPosts.length !== 1 ? 's' : ''}`;
+
+        if (allPosts.length > 0) {
+          document.getElementById('filter-bar').style.display = 'flex';
+        }
+      }, err => {
+        console.error(err);
+        document.getElementById('posts-container').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p>Error al cargar. Asegúrate de que el índice de Firestore esté creado.</p>
+          </div>`;
+      });
+  }
+
+  // ── Renderizar posts ───────────────────────
+  function renderPosts(posts) {
+    const container = document.getElementById('posts-container');
+
+    const filtered = activeFilter === 'todos'
+      ? posts
+      : posts.filter(p => p.tipo === activeFilter);
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <p>${allPosts.length === 0
+            ? 'Aún no hay publicaciones en tu ciudad.<br>¡Sé el primero en publicar!'
+            : 'No hay publicaciones con ese filtro.'
+          }</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="posts-grid">
+      ${filtered.map((p, i) => renderCard(p, i)).join('')}
+    </div>`;
+  }
+
+  // ── Construir HTML de una tarjeta ──────────
+  function renderCard(p, index) {
+    const isNecesito = p.tipo === 'Necesito ayuda';
+    const badgeClass = isNecesito ? 'badge-necesito' : 'badge-quiero';
+    const typeLabel  = isNecesito ? '🙋 Necesito ayuda' : '🤲 Quiero ayudar';
+    const cardClass  = isNecesito ? 'necesito' : 'quiero';
+    const icon       = CATEGORY_ICONS[p.categoria] || '🔧';
+    const fecha      = formatDate(p.fecha);
+    const initials   = getInitials(p.nombre || '?');
+
+    return `
+      <div class="post-card ${cardClass}" style="animation-delay:${index * 0.06}s">
+        <div class="post-meta">
+          <span class="badge ${badgeClass}">${typeLabel}</span>
+          <span class="badge badge-cat">${icon} ${p.categoria}</span>
+        </div>
+        <p class="post-desc">${escapeHtml(p.descripcion)}</p>
+        <div class="post-footer">
+          <div class="post-user">
+            <div class="mini-avatar">${initials}</div>
+            <span>${escapeHtml(p.nombre || 'Anónimo')}</span>
+          </div>
+          <div style="display:flex;gap:.75rem;align-items:center;">
+            <span class="post-location">📍 ${escapeHtml(p.barrio || '')}</span>
+            ${fecha ? `<span style="font-size:.75rem;color:var(--muted);">${fecha}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Filtrar ────────────────────────────────
+  function filtrar(tipo, btn) {
+    activeFilter = tipo;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderPosts(allPosts);
+  }
+
+  // ── Escape XSS ────────────────────────────
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  function cerrarSesion() {
+    auth.signOut().then(() => window.location.href = 'login.html');
+  }
+</script>
+</body>
+</html>

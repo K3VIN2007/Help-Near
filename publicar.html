@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Publicar — HelpNear</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="home.html" class="brand" style="margin-bottom:0;">
+        <div class="brand-icon">🤝</div>
+        <div class="brand-name">Help<span>Near</span></div>
+      </a>
+      <div class="nav-actions">
+        <div class="user-chip">
+          <div class="user-avatar" id="nav-avatar">?</div>
+          <span id="nav-name">...</span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="cerrarSesion()">Salir</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <div style="margin-bottom:1.5rem;">
+      <a href="home.html" class="link text-sm">← Volver al inicio</a>
+    </div>
+
+    <div class="card">
+      <h1 class="card-title">Nueva publicación</h1>
+      <p class="card-subtitle">Tu ciudad y barrio se asocian automáticamente</p>
+
+      <div id="alert-box" class="alert"></div>
+
+      <!-- Tipo de publicación -->
+      <div class="form-group">
+        <label>Tipo de publicación</label>
+        <div class="toggle-group">
+          <input type="radio" name="tipo" id="tipo-necesito" value="Necesito ayuda" class="toggle-option" checked />
+          <label for="tipo-necesito" class="toggle-label">🙋 Necesito ayuda</label>
+
+          <input type="radio" name="tipo" id="tipo-quiero" value="Quiero ayudar" class="toggle-option" />
+          <label for="tipo-quiero" class="toggle-label">🤲 Quiero ayudar</label>
+        </div>
+      </div>
+
+      <!-- Categoría -->
+      <div class="form-group">
+        <label for="categoria">Categoría</label>
+        <select id="categoria">
+          <option value="">Selecciona una categoría...</option>
+          <option value="Comida">🍽️ Comida</option>
+          <option value="Ropa">👕 Ropa</option>
+          <option value="Educación">📚 Educación</option>
+          <option value="Medicamentos">💊 Medicamentos</option>
+          <option value="Otro">🔧 Otro</option>
+        </select>
+      </div>
+
+      <!-- Descripción -->
+      <div class="form-group">
+        <label for="descripcion">Descripción</label>
+        <textarea
+          id="descripcion"
+          placeholder="Describe lo que necesitas o lo que ofreces con detalle..."
+          rows="4"
+        ></textarea>
+      </div>
+
+      <!-- Info de ubicación (readonly) -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:1.1rem;font-size:.85rem;color:var(--muted);">
+        📍 Se publicará en: <strong id="ubicacion-label" style="color:var(--text);">cargando...</strong>
+      </div>
+
+      <button class="btn btn-primary" id="btn-publicar" onclick="publicar()">
+        Publicar →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  let currentUser = null;
+  let userData    = null;
+
+  // ── Inicializar página ──────────────────────
+  (async () => {
+    currentUser = await requireAuth('login.html');
+    userData    = await getUserData(currentUser.uid);
+
+    if (!userData) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    document.getElementById('nav-avatar').textContent = getInitials(userData.nombre);
+    document.getElementById('nav-name').textContent   = userData.nombre.split(' ')[0];
+    document.getElementById('ubicacion-label').textContent =
+      `${userData.ciudad} · ${userData.barrio}`;
+  })();
+
+  // ── Publicar ────────────────────────────────
+  async function publicar() {
+    const tipo        = document.querySelector('input[name="tipo"]:checked').value;
+    const categoria   = document.getElementById('categoria').value;
+    const descripcion = document.getElementById('descripcion').value.trim();
+    const btn         = document.getElementById('btn-publicar');
+
+    if (!categoria) return showAlert('alert-box', 'Selecciona una categoría.');
+    if (!descripcion) return showAlert('alert-box', 'Escribe una descripción.');
+    if (descripcion.length < 10) return showAlert('alert-box', 'La descripción es muy corta.');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Publicando...';
+
+    try {
+      await db.collection('publicaciones').add({
+        tipo,
+        categoria,
+        descripcion,
+        ciudad:    userData.ciudad,
+        barrio:    userData.barrio,
+        nombre:    userData.nombre,
+        userId:    currentUser.uid,
+        fecha:     firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showAlert('alert-box', '¡Publicado con éxito! Redirigiendo...', 'success');
+      setTimeout(() => window.location.href = 'home.html', 1300);
+
+    } catch (err) {
+      console.error(err);
+      showAlert('alert-box', 'Error al publicar. Intenta de nuevo.');
+      btn.disabled = false;
+      btn.innerHTML = 'Publicar →';
+    }
+  }
+
+  function cerrarSesion() {
+    auth.signOut().then(() => window.location.href = 'login.html');
+  }
+</script>
+</body>
+</html>
