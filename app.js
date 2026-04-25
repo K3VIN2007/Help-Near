@@ -23,19 +23,42 @@ const db   = firebase.firestore();
 // ── GUARD: redirige si no hay sesión ─────────
 function requireAuth(redirectTo = 'login.html') {
   return new Promise((resolve) => {
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        window.location.href = redirectTo;
-      } else {
+    // Si ya hay sesión cargada, resolvemos inmediatamente
+    if (auth.currentUser) {
+      resolve(auth.currentUser);
+      return;
+    }
+
+    // Si no, esperamos el primer cambio de estado
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe(); // solo nos interesa la primera vez
+      if (user) {
         resolve(user);
+      } else {
+        window.location.href = redirectTo;
       }
     });
+
+    // Fallback por si nunca se resuelve (máx. 4 segundos)
+    setTimeout(() => {
+      unsubscribe();
+      if (auth.currentUser) {
+        resolve(auth.currentUser);
+      } else {
+        window.location.href = redirectTo;
+      }
+    }, 4000);
   });
 }
 
 // ── GUARD: redirige si ya hay sesión ─────────
 function redirectIfLoggedIn(to = 'home.html') {
-  auth.onAuthStateChanged(user => {
+  if (auth.currentUser) {
+    window.location.href = to;
+    return;
+  }
+  const unsubscribe = auth.onAuthStateChanged(user => {
+    unsubscribe();
     if (user) window.location.href = to;
   });
 }
