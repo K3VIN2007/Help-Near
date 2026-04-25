@@ -5,14 +5,15 @@
 
 // ── CONFIGURACIÓN FIREBASE ──────────────────
 // 🔧 Reemplaza estos valores con los de tu proyecto en Firebase Console
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_STORAGE_BUCKET",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyBH3U8t3gSm7WHx1YonfV9zDaISQq96g0U",
+    authDomain: "helpnear-uniajc.firebaseapp.com",
+    projectId: "helpnear-uniajc",
+    storageBucket: "helpnear-uniajc.firebasestorage.app",
+    messagingSenderId: "293067615657",
+    appId: "1:293067615657:web:cab39806ce5c3c7a91a8b8",
+    measurementId: "G-QXS50H73BH"
+  };
 
 firebase.initializeApp(firebaseConfig);
 
